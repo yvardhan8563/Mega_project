@@ -1,16 +1,20 @@
+@Library('my-shared-library') _
+
 pipeline {
-    agent {label 'Node'}
-    
-    environment{
+
+    agent { label 'Node' }
+
+    environment {
         SONAR_HOME = tool "Sonar"
     }
-    
+
     parameters {
-        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Setting docker image for latest push')
-        string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Setting docker image for latest push')
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: 'latest', description: 'Docker tag for frontend image')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: 'latest', description: 'Docker tag for backend image')
     }
-    
+
     stages {
+
         stage("Validate Parameters") {
             steps {
                 script {
@@ -20,106 +24,140 @@ pipeline {
                 }
             }
         }
-        stage("Workspace cleanup"){
-            steps{
-                script{
-                    cleanWs()
-                }
-            }
-        }
-        
-        stage('Git: Code Checkout') {
+
+        stage("Workspace Cleanup") {
             steps {
-                git branch: 'main', url: 'https://github.com/yvardhan8563/Mega_project.git'
-                }
-            }
-        
-        stage("Trivy: Filesystem scan"){
-            steps{
-                script{
-                    trivy_scan()
-                }
+                cleanWs()
             }
         }
 
-        stage("OWASP: Dependency check"){
-            steps{
-                script{
-                    owasp_dependency()
-                }
+        stage('Git: Code Checkout') {
+            steps {
+                git_checkout(
+                    "https://github.com/yvardhan8563/Mega_project.git",
+                    "main"
+                )
             }
         }
-        
-        stage("SonarQube: Code Analysis"){
-            steps{
-                script{
-                    sonarqube_analysis("Sonar","wanderlust","wanderlust")
-                }
+
+        stage("Trivy: Filesystem Scan") {
+            steps {
+                trivy_scan()
             }
         }
-        
-        stage("SonarQube: Code Quality Gates"){
-            steps{
-                script{
-                    sonarqube_code_quality()
-                }
+
+        stage("OWASP: Dependency Check") {
+            steps {
+                owasp_dependency()
             }
         }
-        
+
+        stage("SonarQube: Code Analysis") {
+            steps {
+                sonarqube_analysis(
+                    "Sonar",
+                    "wanderlust",
+                    "wanderlust"
+                )
+            }
+        }
+
+        stage("SonarQube: Code Quality Gates") {
+            steps {
+                sonarqube_code_quality()
+            }
+        }
+
         stage('Exporting environment variables') {
-            parallel{
-                stage("Backend env setup"){
+
+            parallel {
+
+                stage("Backend env setup") {
                     steps {
-                        script{
-                            dir("Automations"){
-                                sh "bash updatebackendnew.sh"
-                            }
+                        dir("Automations") {
+                            sh "bash updatebackendnew.sh"
                         }
                     }
                 }
-                
-                stage("Frontend env setup"){
+
+                stage("Frontend env setup") {
                     steps {
-                        script{
-                            dir("Automations"){
-                                sh "bash updatefrontendnew.sh"
-                            }
+                        dir("Automations") {
+                            sh "bash updatefrontendnew.sh"
                         }
                     }
                 }
+
             }
+
         }
-        
-        stage("Docker: Build Images"){
-            steps{
-                script{
-                        dir('backend'){
-                            docker_build("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","yvardhan8563")
-                        }
-                    
-                        dir('frontend'){
-                            docker_build("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","yvardhan8563")
-                        }
+
+        stage("Docker: Build Images") {
+
+            steps {
+
+                dir('backend') {
+                    docker_build(
+                        "wanderlust-backend-beta",
+                        "${params.BACKEND_DOCKER_TAG}"
+                    )
                 }
-            }
-        }
-        
-        stage("Docker: Push to DockerHub"){
-            steps{
-                script{
-                    docker_push("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","yvardhan8563") 
-                    docker_push("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","yvardhan8563")
+
+                dir('frontend') {
+                    docker_build(
+                        "wanderlust-frontend-beta",
+                        "${params.FRONTEND_DOCKER_TAG}"
+                    )
                 }
+
             }
+
         }
+
+        stage("Docker: Push to DockerHub") {
+
+            steps {
+
+                docker_push(
+                    "wanderlust-backend-beta",
+                    "${params.BACKEND_DOCKER_TAG}",
+                    "yvardhan8563"
+                )
+
+                docker_push(
+                    "wanderlust-frontend-beta",
+                    "${params.FRONTEND_DOCKER_TAG}",
+                    "yvardhan8563"
+                )
+
+            }
+
+        }
+
     }
-    post{
-        success{
+
+    post {
+
+        success {
+
             archiveArtifacts artifacts: '*.xml', followSymlinks: false
+
             build job: "Wanderlust-CD", parameters: [
-                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG}"),
-                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG}")
+
+                string(
+                    name: 'FRONTEND_DOCKER_TAG',
+                    value: "${params.FRONTEND_DOCKER_TAG}"
+                ),
+
+                string(
+                    name: 'BACKEND_DOCKER_TAG',
+                    value: "${params.BACKEND_DOCKER_TAG}"
+                )
+
             ]
+
         }
+
     }
+
 }
