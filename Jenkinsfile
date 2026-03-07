@@ -30,11 +30,9 @@ pipeline {
         
         stage('Git: Code Checkout') {
             steps {
-                script{
-                    code_checkout("https://github.com/yvardhan8563/Mega_project.git","main")
+                git branch: 'main', url: 'https://github.com/yvardhan8563/Mega_project.git'
                 }
             }
-        }
         
         stage("Trivy: Filesystem scan"){
             steps{
