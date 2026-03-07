@@ -1,6 +1,6 @@
 @Library('Shared') _
 pipeline {
-    agent {label 'akbagent'}
+    agent {label 'Node'}
     
     environment{
         SONAR_HOME = tool "Sonar"
@@ -32,7 +32,7 @@ pipeline {
         stage('Git: Code Checkout') {
             steps {
                 script{
-                    code_checkout("https://github.com/NotHarshhaa/DevOps-Projects/DevOps-Project-40/Devops-Mega-Project-Jenkins-ArgoCD-EKS","master")
+                    code_checkout("https://github.com/yvardhan8563/Mega_project.git","main")
                 }
             }
         }
